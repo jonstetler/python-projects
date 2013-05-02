@@ -1,56 +1,140 @@
 class MazeSolver(object):
 
+
 	def __init__(self, maze_def_filename, maze_solution_filename):
 		self.loadMaze(maze_def_filename)
-		self.maze_solution_filename = maze_solution_filename
-		self.maze_constructs = {'wall': '#', 'isopen': '_'}
-		self.path_identifiers = [chr(i) for i in xrange(ord('a'), ord('z')+1)]
-		self.deriveStartingCoordinates()
-		self.deriveEndingCoordinates()
+		if self.canSolveMaze:
+			self.maze_solution_filename = maze_solution_filename
+			self.maze_constructs = {'wall': '#', 'open': '_', 'end':'$', 'bad':'!','good':'+'}
+			self.path_identifiers = [chr(i) for i in xrange(ord('a'), ord('z')+1)]
+			self.maze[self.end_row][self.end_col] = self.maze_constructs['end']
+			self.path_identifier_index = 0
+
 
 	def solve(self):
-		self.findPath(self.start_row, self.start_col)
-		self.saveResults()
+		if self.canSolveMaze == True:
+			self.find_path(self.start_row, self.start_col)
+			self.cleanUpBadCells()
+			self.saveResults()
 
-	def findPath(self, row, col, from_row = 0, from_col = 0):
-		if row == self.end_row and col == self.start_row:
-			print 'found the end'
-			#self.maze[row][col] = "*"
-		elif row == self.start_row and col == self.start_col:
-			self.maze[self.start_row][self.start_col] = '*'
-			self.findPath(row + 1, col)
-		elif self.maze[row][col] == self.maze_constructs['isopen']:
-			self.maze[row][col] = '*'
-			self.findPath(row, col - 1)
-		elif self.maze[row][col] == self.maze_constructs['wall']:
-			self.findPath(row, col + 1, row, col)
-			print "hit a wall...backup"
-		elif self.maze[row][col] == '*':
-			self.rotate(row, col, from_row, from_col)
-			print "backup from [%s,%s]" % (from_row, from_col)
-		else:
-			print "missing case..at: [%s,%s]" % (row, col)
+
+	def find_path(self, row, col):
+		while (True):
+			if self.isEnd(row, col):
+				self.maze[row][col] = self.getNextPathIdentifier()
+				break
+			elif self.isOpen(row, col):
+				self.maze[row][col] = self.getNextPathIdentifier()
+			#start moving
+			if self.isValidFirstMove(row, col - 1): 
+				col -= 1 # move left
+			elif self.isValidMove(row + 1, col):
+				row += 1 # move down
+			elif self.isValidMove(row, col + 1):
+				self.backTrackLeft(row, col)
+				col += 1 # move right
+			elif self.isValidMove(row -1, col):
+				self.backTrackUp(row, col)
+				row -= 1 # move up
 		
-	def rotate(self, row, col, from_row, from_col):
-		if row == from_row and col > from_col:
-			print "moving down to "
-			self.findPath(row + 1, col)
-		elif row < row_from and col == from_col:
-			self.findPath(row - 1, col)
+	
+	def isOpen(self, row, col):
+		if self.maze[row][col] == self.maze_constructs['open']:
+			return True
 		else:
-			print "got nothing"
+			return False
+
+
+	def isEnd(self, row, col):
+		if self.maze[row][col] == self.maze_constructs['end']:
+			return True
+		else:
+			return False
+
+
+	def backTrackUp(self, row, col):
+		if (self.isPathIdentifier(row, col)
+			and self.isPathIdentifier(row - 1,col)):
+				self.maze[row][col] = self.maze_constructs['bad']
+				self.path_identifier_index -= 1
+
+
+	def backTrackLeft(self, row, col):
+		if (self.isPathIdentifier(row, col) 
+			and self.isPathIdentifier(row, col + 1)
+			and self.isOutOfBounds(row - 1, col) == False 
+			and not self.isPathIdentifier(row -1,col)):
+				self.maze[row][col] = self.maze_constructs['bad']
+				self.path_identifier_index -= 1
+
+
+	def isValidFirstMove(self, row, col):
+		if (self.isOutOfBounds(row, col) == False 
+			and self.notWallOrBadCell(row, col) == True
+			and not self.isPathIdentifier(row, col)):
+			return True
+		else: 
+			return False
+
+
+	def isValidMove(self, row, col):
+		if (self.isOutOfBounds(row, col) == False 
+			and self.notWallOrBadCell(row, col) == True):
+			return True
+		else:
+			return False
+
+
+	def notWallOrBadCell(self, row, col):
+		if self.isOutOfBounds(row, col) == False:
+			if self.maze[row][col] == self.maze_constructs['wall']:
+				return False
+			elif self.maze[row][col] == self.maze_constructs['bad']:
+				return False
+			else:
+				return True
+		else: return True
+
+
+	def getNextPathIdentifier(self):
+		if self.path_identifier_index == 26:
+			self.path_identifier_index = 0
+		next_path_identifier = self.path_identifiers[self.path_identifier_index]
+		self.path_identifier_index += 1
+		return next_path_identifier
+
+
+	def isPathIdentifier(self, row, col):
+		return any(self.maze[row][col].lower() == val.lower() for val in self.path_identifiers)
+		
+
+	def isOutOfBounds(self, row, col):
+		if row < 0 or col < 0 or row > self.end_row or col > (len(self.maze[0])) - 1: 
+			return True
+		else:
+			return False
+
 
 	def deriveStartingCoordinates(self):
 		self.start_row = 0
-		self.start_col = self.maze[0].index('_')
+		try:
+			self.start_col = self.maze[0].index('_')
+		except:
+			print "ERROR: no starting point defined in maze definition"
+			self.canSolveMaze = False
+
 
 	def deriveEndingCoordinates(self):
-		self.end_row = len(self.maze) -1
-		self.end_col = self.maze[self.end_row].index('_')
-		
+		try:
+			self.end_row = len(self.maze) -1
+			self.end_col = self.maze[self.end_row].index('_')
+		except:
+			print "ERROR: no ending point defined in maze definition"
+			self.canSolveMaze = False
+
 
 	def loadMaze(self, maze_def_filename):
-		#TODO: add some validation
+		self.canSolveMaze = True
 		maze_def_txt = open(maze_def_filename)
 		self.maze = []
 		for line in maze_def_txt:
@@ -58,6 +142,21 @@ class MazeSolver(object):
 			for char in line:
 				row.append(char)
 			self.maze.append(row)
+		maze_def_txt.close()
+		self.deriveStartingCoordinates()
+		self.deriveEndingCoordinates()
+
+
+	def cleanUpBadCells(self):
+		row = 0
+		for line in self.maze:
+			col = 0
+			for char in line:
+				if char == self.maze_constructs['bad']:
+					self.maze[row][col] = '_'
+				col += 1
+			row += 1
+
 
 	def saveResults(self):
 		solutions_file = open(self.maze_solution_filename, 'w')
@@ -65,7 +164,6 @@ class MazeSolver(object):
 			row = ''.join(chars)
 			print row.rstrip()
 			solutions_file.write(row)
-		solutions_file.close()			
+		solutions_file.close()	
 
 
-			
