@@ -25,19 +25,36 @@ class MazeSolver(object):
 				break
 			elif self.isOpen(row, col):
 				self.maze[row][col] = self.getNextPathIdentifier()
-			#start moving
-			if self.isValidFirstMove(row, col - 1): 
+			#move to next open space
+			elif self.isValidOpenMove(row, col - 1): 
 				col -= 1 # move left
-			elif self.isValidMove(row + 1, col):
+			elif self.isValidOpenMove(row + 1, col):
 				row += 1 # move down
-			elif self.isValidMove(row, col + 1):
-				self.backTrackLeft(row, col)
+			elif self.isValidOpenMove(row, col + 1):
 				col += 1 # move right
-			elif self.isValidMove(row -1, col):
-				self.backTrackUp(row, col)
+			elif self.isValidOpenMove(row -1, col):
 				row -= 1 # move up
+			#no open spaces, so backtrack
+			elif self.isValidBackTrackMove(row, col + 1): 
+				self.markCurrentCellAsBad(row, col)
+				col += 1 # move right
+			elif self.isValidBackTrackMove(row - 1, col):
+				self.markCurrentCellAsBad(row, col)
+				row -= 1 # move up
+			elif self.isValidBackTrackMove(row, col - 1):
+				self.markCurrentCellAsBad(row, col)				
+				col -= 1 # move left
+			elif self.isValidBackTrackMove(row + 1, col):
+				self.markCurrentCellAsBad(row, col)
+				row += 1 # move down	
 		
 	
+	def markCurrentCellAsBad(self, row, col): 
+		if self.path_identifier_index > 0:
+			self.path_identifier_index -= 1
+		self.maze[row][col] = self.maze_constructs['bad']
+		
+
 	def isOpen(self, row, col):
 		if self.maze[row][col] == self.maze_constructs['open']:
 			return True
@@ -52,32 +69,16 @@ class MazeSolver(object):
 			return False
 
 
-	def backTrackUp(self, row, col):
-		if (self.isPathIdentifier(row, col)
-			and self.isPathIdentifier(row - 1,col)):
-				self.maze[row][col] = self.maze_constructs['bad']
-				self.path_identifier_index -= 1
-
-
-	def backTrackLeft(self, row, col):
-		if (self.isPathIdentifier(row, col) 
-			and self.isPathIdentifier(row, col + 1)
-			and self.isOutOfBounds(row - 1, col) == False 
-			and not self.isPathIdentifier(row -1,col)):
-				self.maze[row][col] = self.maze_constructs['bad']
-				self.path_identifier_index -= 1
-
-
-	def isValidFirstMove(self, row, col):
-		if (self.isOutOfBounds(row, col) == False 
-			and self.notWallOrBadCell(row, col) == True
+	def isValidOpenMove(self, row, col):
+		if (not self.isOutOfBounds(row, col) 
+			and self.notWallOrBadCell(row, col)
 			and not self.isPathIdentifier(row, col)):
 			return True
 		else: 
 			return False
 
 
-	def isValidMove(self, row, col):
+	def isValidBackTrackMove(self, row, col):
 		if (self.isOutOfBounds(row, col) == False 
 			and self.notWallOrBadCell(row, col) == True):
 			return True
@@ -97,11 +98,12 @@ class MazeSolver(object):
 
 
 	def getNextPathIdentifier(self):
-		if self.path_identifier_index == 26:
-			self.path_identifier_index = 0
-		next_path_identifier = self.path_identifiers[self.path_identifier_index]
+		next_path_identifier = self.path_identifier_index
+		while(next_path_identifier >= 26):
+			next_path_identifier -= 26
 		self.path_identifier_index += 1
-		return next_path_identifier
+		print next_path_identifier
+		return self.path_identifiers[next_path_identifier]
 
 
 	def isPathIdentifier(self, row, col):
