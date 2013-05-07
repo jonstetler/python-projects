@@ -102,7 +102,6 @@ class MazeSolver(object):
 		while(next_path_identifier >= 26):
 			next_path_identifier -= 26
 		self.path_identifier_index += 1
-		print next_path_identifier
 		return self.path_identifiers[next_path_identifier]
 
 
